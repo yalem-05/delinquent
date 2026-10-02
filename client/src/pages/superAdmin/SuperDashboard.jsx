@@ -1,4 +1,4 @@
-// pages/superAdmin/SuperDashboard.jsx
+// pages/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -16,17 +16,17 @@ import {
 } from "@mui/material";
 import {
   Storage as StorageIcon,
-  Update as UpdateIcon,
-  Male as MaleIcon,
-  Female as FemaleIcon,
   People as PeopleIcon,
   AccountBalance as AccountBalanceIcon,
-  Phone as PhoneIcon,
   Dashboard as DashboardIcon,
+  Public as PublicIcon,
+  Gavel as GavelIcon,
+  Security as SecurityIcon,
+  List as ListIcon
 } from "@mui/icons-material";
 import axios from "axios";
 
-const API_URL = `${import.meta.env.VITE_API_URL}/api/superDashboard/dashboard`;
+const API_URL = `${import.meta.env.VITE_API_URL}/api/adminDashboard/stats`;
 
 const StatCard = ({ title, value, icon, color = "#DAA520", subtitle }) => (
   <Card sx={{ bgcolor: "#fff", borderRadius: 2, boxShadow: 1, height: "100%" }}>
@@ -97,7 +97,7 @@ const SuperDashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         console.log("Dashboard data:", response.data);
-        setData(response.data);
+        setData(response.data.data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -114,9 +114,9 @@ const SuperDashboard = () => {
         <Container
           maxWidth={false}
           sx={{
-            width: getContainerWidth(),
-            ml: getContainerMargin(),
-            mr: isMobile ? 0 : "12px",
+            width: "100%",
+            ml: 0,
+            mr: 0,
             px: { xs: 1, sm: 2, md: 0.5 },
             display: "flex",
             justifyContent: "center",
@@ -136,9 +136,9 @@ const SuperDashboard = () => {
         <Container
           maxWidth={false}
           sx={{
-            width: getContainerWidth(),
-            ml: getContainerMargin(),
-            mr: isMobile ? 0 : "12px",
+            width: "100%",
+            ml: 0,
+            mr: 0,
             px: { xs: 1, sm: 2, md: 0.5 },
             display: "flex",
             justifyContent: "center",
@@ -150,19 +150,29 @@ const SuperDashboard = () => {
         </Container>
       </Box>
     );
-  }
-
-  const newCore = data.new_core_data;
-  const oldCore = data.old_core_data;
+  } const statsList = [
+    { title: "Users", value: data.users, icon: <PeopleIcon sx={{ fontSize: 24, color: "#1976d2" }} />, color: "#1976d2" },
+    { title: "International PEP", value: data.international_pep, icon: <PublicIcon sx={{ fontSize: 24, color: "#DAA520" }} />, color: "#DAA520" },
+    { title: "UK Sanctions List", value: data.uk_sanctions, icon: <GavelIcon sx={{ fontSize: 24, color: "#d32f2f" }} />, color: "#d32f2f" },
+    { title: "EU Sanctions", value: data.eu_sanctions, icon: <SecurityIcon sx={{ fontSize: 24, color: "#0288d1" }} />, color: "#0288d1" },
+    { title: "OFAC Sanctions", value: data.ofac_sanctions, icon: <GavelIcon sx={{ fontSize: 24, color: "#2e7d32" }} />, color: "#2e7d32" },
+    { title: "UN Sanctions", value: data.un_sanctions, icon: <PublicIcon sx={{ fontSize: 24, color: "#ed6c02" }} />, color: "#ed6c02" },
+    { title: "UN Designated", value: data.un_designated, icon: <PublicIcon sx={{ fontSize: 24, color: "#9c27b0" }} />, color: "#9c27b0" },
+    { title: "Black List", value: data.black_list, icon: <ListIcon sx={{ fontSize: 24, color: "#000000" }} />, color: "#000000" },
+    { title: "Delinquent List", value: data.deliquent_list, icon: <AccountBalanceIcon sx={{ fontSize: 24, color: "#c62828" }} />, color: "#c62828" },
+    { title: "ETH List", value: data.eth_list, icon: <ListIcon sx={{ fontSize: 24, color: "#1565c0" }} />, color: "#1565c0" },
+    { title: "Local PEP", value: data.local_peps, icon: <PublicIcon sx={{ fontSize: 24, color: "#2e7d32" }} />, color: "#2e7d32" },
+    { title: "PEP Adverser", value: data.pep_adverser, icon: <GavelIcon sx={{ fontSize: 24, color: "#d84315" }} />, color: "#d84315" },
+  ];
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#f5f5f5", py: isMobile ? 1 : 2 }}>
       <Container
         maxWidth={false}
         sx={{
-          width: getContainerWidth(),
-          ml: getContainerMargin(),
-          mr: isMobile ? 0 : "12px",
+          width: "100%",
+          ml: 0,
+          mr: 0,
           px: { xs: 1, sm: 2, md: 0.5 },
         }}
       >
@@ -173,250 +183,22 @@ const SuperDashboard = () => {
           gutterBottom
           sx={{ mb: 3 }}
         >
-          Super Admin Dashboard
+          Admin Dashboard
         </Typography>
 
-        {/* NEW CORE DATA SECTION */}
-        <SectionTitle text="NEW CORE DATA" />
+        <SectionTitle text="RECORD COUNTS" />
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Total Records"
-              value={newCore?.total}
-              icon={<StorageIcon sx={{ fontSize: 24, color: "#DAA520" }} />}
-              color="#DAA520"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="UPDATED"
-              value={newCore?.status?.updated}
-              icon={<UpdateIcon sx={{ fontSize: 24, color: "#2e7d32" }} />}
-              color="#2e7d32"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="UPDATEDs"
-              value={newCore?.status?.updateds}
-              icon={<UpdateIcon sx={{ fontSize: 24, color: "#0288d1" }} />}
-              color="#0288d1"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Male"
-              value={newCore?.gender?.male}
-              icon={<MaleIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Female"
-              value={newCore?.gender?.female}
-              icon={<FemaleIcon sx={{ fontSize: 24, color: "#d32f2f" }} />}
-              color="#d32f2f"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Customers"
-              value={newCore?.uniques?.customer_id}
-              icon={<PeopleIcon sx={{ fontSize: 24, color: "#DAA520" }} />}
-              color="#DAA520"
-              subtitle="Customer IDs"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Accounts"
-              value={newCore?.uniques?.account_number}
-              icon={<AccountBalanceIcon sx={{ fontSize: 24, color: "#DAA520" }} />}
-              color="#DAA520"
-              subtitle="Account Numbers"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique National IDs"
-              value={newCore?.uniques?.national_id}
-              icon={<DashboardIcon sx={{ fontSize: 24, color: "#DAA520" }} />}
-              color="#DAA520"
-              subtitle="National IDs"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Phones"
-              value={newCore?.uniques?.phone}
-              icon={<PhoneIcon sx={{ fontSize: 24, color: "#DAA520" }} />}
-              color="#DAA520"
-              subtitle="Phone Numbers"
-            />
-          </Grid>
+          {statsList.map((stat, idx) => (
+            <Grid item xs={12} sm={6} md={3} key={idx}>
+              <StatCard
+                title={stat.title}
+                value={stat.value}
+                icon={stat.icon}
+                color={stat.color}
+              />
+            </Grid>
+          ))}
         </Grid>
-
-        {/* OLD CORE DATA SECTION */}
-        <SectionTitle text="OLD CORE DATA" color="#1976d2" />
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Total Records"
-              value={oldCore?.total}
-              icon={<StorageIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Male"
-              value={oldCore?.gender?.male}
-              icon={<MaleIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Female"
-              value={oldCore?.gender?.female}
-              icon={<FemaleIcon sx={{ fontSize: 24, color: "#d32f2f" }} />}
-              color="#d32f2f"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Customers"
-              value={oldCore?.uniques?.customer_id}
-              icon={<PeopleIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-              subtitle="Customer IDs"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Accounts"
-              value={oldCore?.uniques?.account_number}
-              icon={<AccountBalanceIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-              subtitle="Account Numbers"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique National IDs"
-              value={oldCore?.uniques?.national_id}
-              icon={<DashboardIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-              subtitle="National IDs"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <StatCard
-              title="Unique Phones"
-              value={oldCore?.uniques?.phone}
-              icon={<PhoneIcon sx={{ fontSize: 24, color: "#1976d2" }} />}
-              color="#1976d2"
-              subtitle="Phone Numbers"
-            />
-          </Grid>
-        </Grid>
-
-        {/* COMPARISON SECTION */}
-        <SectionTitle text="COMPARISON (NEW vs OLD)" color="#ed6c02" />
-        <Paper sx={{ p: 2, borderRadius: 2, overflow: "auto" }}>
-          <Box sx={{ minWidth: 500 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #DAA520" }}>
-                  <th style={{ textAlign: "left", padding: "12px" }}>Metric</th>
-                  <th style={{ textAlign: "right", padding: "12px" }}>New Core Data</th>
-                  <th style={{ textAlign: "right", padding: "12px" }}>Old Core Data</th>
-                  <th style={{ textAlign: "right", padding: "12px" }}>Difference</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Total Records</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#DAA520", fontWeight: "bold" }}>
-                    {newCore?.total?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.total?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.total - oldCore?.total) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.total - oldCore?.total) > 0 ? "+" : "")}
-                    {(newCore?.total - oldCore?.total)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Male</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#1976d2", fontWeight: "bold" }}>
-                    {newCore?.gender?.male?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.gender?.male?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.gender?.male - oldCore?.gender?.male) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.gender?.male - oldCore?.gender?.male) > 0 ? "+" : "")}
-                    {(newCore?.gender?.male - oldCore?.gender?.male)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Female</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#d32f2f", fontWeight: "bold" }}>
-                    {newCore?.gender?.female?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.gender?.female?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.gender?.female - oldCore?.gender?.female) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.gender?.female - oldCore?.gender?.female) > 0 ? "+" : "")}
-                    {(newCore?.gender?.female - oldCore?.gender?.female)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Unique Customers</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#DAA520", fontWeight: "bold" }}>
-                    {newCore?.uniques?.customer_id?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.uniques?.customer_id?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.uniques?.customer_id - oldCore?.uniques?.customer_id) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.uniques?.customer_id - oldCore?.uniques?.customer_id) > 0 ? "+" : "")}
-                    {(newCore?.uniques?.customer_id - oldCore?.uniques?.customer_id)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Unique Accounts</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#DAA520", fontWeight: "bold" }}>
-                    {newCore?.uniques?.account_number?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.uniques?.account_number?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.uniques?.account_number - oldCore?.uniques?.account_number) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.uniques?.account_number - oldCore?.uniques?.account_number) > 0 ? "+" : "")}
-                    {(newCore?.uniques?.account_number - oldCore?.uniques?.account_number)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #e0e0e0" }}>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Unique National IDs</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#DAA520", fontWeight: "bold" }}>
-                    {newCore?.uniques?.national_id?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.uniques?.national_id?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.uniques?.national_id - oldCore?.uniques?.national_id) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.uniques?.national_id - oldCore?.uniques?.national_id) > 0 ? "+" : "")}
-                    {(newCore?.uniques?.national_id - oldCore?.uniques?.national_id)?.toLocaleString()}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "12px", fontWeight: "bold" }}>Unique Phones</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: "#DAA520", fontWeight: "bold" }}>
-                    {newCore?.uniques?.phone?.toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>{oldCore?.uniques?.phone?.toLocaleString()}</td>
-                  <td style={{ padding: "12px", textAlign: "right", color: (newCore?.uniques?.phone - oldCore?.uniques?.phone) > 0 ? "#2e7d32" : "#d32f2f", fontWeight: "bold" }}>
-                    {((newCore?.uniques?.phone - oldCore?.uniques?.phone) > 0 ? "+" : "")}
-                    {(newCore?.uniques?.phone - oldCore?.uniques?.phone)?.toLocaleString()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </Box>
-        </Paper>
 
         {/* Footer */}
         <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid #e0e0e0", textAlign: "center" }}>

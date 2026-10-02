@@ -211,7 +211,7 @@ const Sidebar = ({
             © {new Date().getFullYear()} Anbesa Bank
           </Typography>
           <Typography variant="caption" sx={{ color: '#666', display: 'block', fontSize: '0.6rem' }}>
-            Monitoring System v2.0
+            delinquent list v1.0
           </Typography>
         </Box>
       )}
@@ -227,7 +227,7 @@ const Sidebar = ({
           }}
         >
           <Typography variant="caption" sx={{ color: '#DAA520' }}>
-            v2.0
+            v1.0
           </Typography>
         </Box>
       )}

@@ -84,6 +84,9 @@ const DashboardLayout = ({ menu, title, isMobile }) => {
             sx={{
               p: 0,
               flexGrow: 1,
+              ml: isMobile ? 0 : `${sidebarWidth}px`,
+              width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
+              transition: 'margin-left 0.25s ease-in-out, width 0.25s ease-in-out',
             }}
           >
             <Outlet />

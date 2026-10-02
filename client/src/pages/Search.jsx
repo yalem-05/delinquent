@@ -1,935 +1,376 @@
-// pages/Search.jsx
-import React, { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
 import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  InputAdornment,
-  Chip,
-  Grid,
-  CircularProgress,
-  useMediaQuery,
-  useTheme,
-  Button,
-  Tooltip,
-  Alert,
-  Snackbar,
-  TablePagination,
-  Badge,
-  Divider,
+    Box,
+    TextField,
+    Button,
+    Typography,
+    Card,
+    CardContent,
+    CircularProgress,
+    IconButton,
+    Chip,
+    Grid,
+    InputAdornment,
+    Collapse,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    alpha,
+    Container,
+    Paper,
+    useTheme,
+    useMediaQuery,
+    Snackbar,
+    Alert
 } from "@mui/material";
 import {
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  Person as PersonIcon,
-  Public as PublicIcon,
-  Gavel as GavelIcon,
-  Home as HomeIcon,
+    Search as SearchIcon,
+    Clear as ClearIcon,
+    ExpandMore as ExpandMoreIcon,
+    Public as PublicIcon,
+    Gavel as GavelIcon,
+    AssignmentLate as ListIcon,
+    Security as SecurityIcon,
+    AccountBalance as BankIcon,
 } from "@mui/icons-material";
 import axios from "axios";
-import { format } from "date-fns";
 
-// =========================================================
-// Helpers (module-level)
-// =========================================================
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5080";
 
-const COUNTRY_NAMES = {
-  ad: "Andorra", ae: "UAE", af: "Afghanistan", al: "Albania",
-  am: "Armenia", ar: "Argentina", at: "Austria", au: "Australia",
-  az: "Azerbaijan", ba: "Bosnia & Herzegovina", be: "Belgium",
-  bg: "Bulgaria", br: "Brazil", by: "Belarus", ca: "Canada",
-  ch: "Switzerland", cn: "China", cy: "Cyprus", cz: "Czechia",
-  de: "Germany", dk: "Denmark", dz: "Algeria", ee: "Estonia",
-  eg: "Egypt", es: "Spain", fi: "Finland", fr: "France",
-  gb: "United Kingdom", ge: "Georgia", gr: "Greece", hr: "Croatia",
-  hu: "Hungary", ie: "Ireland", il: "Israel", in: "India",
-  iq: "Iraq", ir: "Iran", is: "Iceland", it: "Italy",
-  jp: "Japan", ke: "Kenya", kr: "South Korea", kw: "Kuwait",
-  kz: "Kazakhstan", lb: "Lebanon", lt: "Lithuania", lu: "Luxembourg",
-  lv: "Latvia", ma: "Morocco", mc: "Monaco", md: "Moldova",
-  me: "Montenegro", mk: "North Macedonia", mt: "Malta", mx: "Mexico",
-  nl: "Netherlands", no: "Norway", nz: "New Zealand", pl: "Poland",
-  pt: "Portugal", qa: "Qatar", ro: "Romania", rs: "Serbia",
-  ru: "Russia", sa: "Saudi Arabia", se: "Sweden", sg: "Singapore",
-  si: "Slovenia", sk: "Slovakia", sy: "Syria", tn: "Tunisia",
-  tr: "Türkiye", ua: "Ukraine", uk: "United Kingdom", us: "United States",
-  za: "South Africa",
+const ICONS_MAP = {
+    International_PEPs: <PublicIcon />,
+    UK_Sanctions_List: <GavelIcon />,
+    EU_Sanctions_List: <SecurityIcon />,
+    OFAC_Sanctions_List: <GavelIcon />,
+    UN_Sanctions_List: <PublicIcon />,
+    UN_Designated_List: <PublicIcon />,
+    Black_List: <ListIcon />,
+    Deliquent_List: <BankIcon />,
+    ETH_List: <ListIcon />,
+    Local_PEPs: <PublicIcon />,
+    PEP_Adverser_List: <GavelIcon />
 };
 
-const formatCountry = (raw) => {
-  if (!raw) return "—";
-  const codes = String(raw).split(/[;,]\s*/).filter(Boolean);
-  if (!codes.length) return "—";
-  return codes
-    .map((c) => COUNTRY_NAMES[c.toLowerCase()] || c.toUpperCase())
-    .join(", ");
-};
-
-const formatBirthDate = (raw) => {
-  if (!raw) return "—";
-  const str = String(raw).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (m) {
-    const [, mm, dd, yy] = m;
-    const year =
-      yy.length === 2 ? (parseInt(yy) < 30 ? `20${yy}` : `19${yy}`) : yy;
-    return `${year}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
-  }
-  return str;
-};
-
-const safeFormatDate = (dateString) => {
-  if (!dateString) return "—";
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return String(dateString);
-    return format(d, "MMM dd, yyyy");
-  } catch {
-    return String(dateString);
-  }
-};
-
-// Extract primary name + aliases from the JSON `names` blob
-const parseSanctionsNames = (namesValue) => {
-  const result = { primaryName: null, aliases: [] };
-  if (!namesValue) return result;
-
-  try {
-    const parsed =
-      typeof namesValue === "string" ? JSON.parse(namesValue) : namesValue;
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-
-    for (const n of arr) {
-      if (!n || typeof n !== "object") continue;
-      const label = n.Name6 || n.Name1 || n.Name2 || n.Name3 || n.Name4 || n.Name5 || null;
-
-      if (n.NameType === "Primary Name") {
-        result.primaryName = label;
-      } else if (n.NameType === "Alias") {
-        if (label) result.aliases.push(label);
-      }
-    }
-
-    if (!result.primaryName && arr[0] && typeof arr[0] === "object") {
-      result.primaryName =
-        arr[0].Name6 || arr[0].Name1 || arr[0].Name2 || arr[0].Name3 || null;
-    }
-  } catch {
-    result.primaryName = typeof namesValue === "string" ? namesValue : null;
-  }
-
-  return result;
-};
-
-// Extract bullet items from a JSON array-or-object column
-const parseJsonList = (value) => {
-  if (!value) return [];
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-    return arr
-      .map((item) => {
-        if (item === null || item === undefined) return null;
-        if (typeof item === "string") return item;
-        if (typeof item === "object") {
-          // Join all sub-fields into a readable line
-          const parts = Object.entries(item)
-            .filter(([, v]) => v !== null && v !== undefined && v !== "")
-            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1").trim()}: ${v}`);
-          return parts.join(", ");
-        }
-        return String(item);
-      })
-      .filter(Boolean);
-  } catch {
-    return typeof value === "string" ? [value] : [];
-  }
-};
-
-// =========================================================
-// Component
-// =========================================================
 const Search = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const navigate = useNavigate();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const [pepResults, setPepResults] = useState([]);
-  const [sanctionsResults, setSanctionsResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [name, setName] = useState("");
+    const showSnackbar = (message, severity = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
-  const [pepPage, setPepPage] = useState(0);
-  const [pepRowsPerPage, setPepRowsPerPage] = useState(10);
-  const [sanctionsPage, setSanctionsPage] = useState(0);
-  const [sanctionsRowsPerPage, setSanctionsRowsPerPage] = useState(5);
+    const handleSnackbarClose = () => {
+        setSnackbar(prev => ({ ...prev, open: false }));
+    };
 
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
-  const getContainerMargin = () => (isMobile ? "0px" : "84px");
-  const getContainerWidth = () => (isMobile ? "100%" : "calc(100% - 96px)");
-
-  const scrollbarStyles = {
-    "&::-webkit-scrollbar": { width: "8px", height: "8px" },
-    "&::-webkit-scrollbar-track": {
-      backgroundColor: "#f1f1f1",
-      borderRadius: "4px",
-    },
-    "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#DAA520",
-      borderRadius: "4px",
-      "&:hover": { backgroundColor: "#b8860b" },
-    },
-  };
-
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  // =========================================================
-  // 🔍 Search
-  // =========================================================
-  const fetchSearchResults = useCallback(async () => {
-    if (!name.trim()) {
-      setError("Please enter a name to search");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      setHasSearched(true);
-
-      const token = localStorage.getItem("token");
-
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/search/all`,
-        {
-          params: { name: name.trim() },
-          headers: { Authorization: `Bearer ${token}` },
+    const handleSearch = async (e) => {
+        if (e) e.preventDefault();
+        if (!query.trim()) {
+            setResults(null);
+            return;
         }
-      );
 
-      if (response.data.success) {
-        const data = response.data;
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${API_URL}/api/search/all?name=${encodeURIComponent(query)}`, {
+            });
+            const data = response.data;
 
-        // ---- Normalize PEP rows ----
-        const rawPeps = data.International_PEPs || [];
-        const peps = rawPeps.map((p) => ({
-          id: p.id,
-          name: p.name,
-          aliases: p.aliases
-            ? String(p.aliases)
-                .split(/[;,]\s*/)
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : [],
-          countries: p.countries,
-          birthDate: p.birth_date,
-          sources: p.dataset
-            ? String(p.dataset)
-                .split(";")
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : [],
-          schema: p.schema,
-          status: "Active",
-          matchDate: p.last_seen || p.last_change,
-        }));
-
-        // ---- Normalize Sanctions rows (full document shape) ----
-        const rawSanctions = data.UK_Sanctions_List || [];
-        const sanctions = rawSanctions.map((row) => {
-          const { primaryName, aliases } = parseSanctionsNames(row.names);
-          const nonLatin = parseJsonList(row.non_latin_names);
-          const addresses = parseJsonList(row.addresses);
-
-          return {
-            id: row.unique_id,
-            name: primaryName,
-            aliases,
-            nonLatinNames: nonLatin,
-            addresses,
-            sanctionsImposed: row.sanctions_imposed,
-            listType: row.designation_source,
-            regime: row.regime_name,
-            listedDate: row.date_designated,
-            matchDate: row.last_updated,
-          };
-        });
-
-        setPepResults(peps);
-        setSanctionsResults(sanctions);
-        setPepPage(0);
-        setSanctionsPage(0);
-
-        const total = peps.length + sanctions.length;
-        if (total === 0) {
-          showSnackbar("No matches found for this name", "info");
-        } else {
-          showSnackbar(
-            `Found ${peps.length} International PEP(s) and ${sanctions.length} UK Sanction(s)`,
-            "success"
-          );
+            if (data.success) {
+                setResults(data);
+                showSnackbar('Search completed successfully', 'success');
+            } else {
+                setResults(null);
+                showSnackbar(data.error || 'Search failed', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            setResults(null);
+            showSnackbar('Network error during search', 'error');
+        } finally {
+            setLoading(false);
         }
-      } else {
-        setError(
-          response.data.error ||
-            response.data.message ||
-            "Failed to fetch results"
+    };
+
+    const clearSearch = () => {
+        setQuery('');
+        setResults(null);
+    };
+
+    // Helper to safely parse JSON strings (for name_aliases, names, etc.)
+    const safeParse = (str) => {
+        if (!str) return [];
+        try {
+            const parsed = typeof str === 'string' ? JSON.parse(str) : str;
+            return Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+            return [str];
+        }
+    };
+
+    const getUKPrimaryName = (namesData) => {
+        const arr = safeParse(namesData);
+        for (const n of arr) {
+            if (n?.NameType === "Primary Name") {
+                return n.Name6 || n.Name1 || n.Name2 || n.Name3 || n.Name4 || n.Name5 || "Unknown";
+            }
+        }
+        return arr[0]?.Name6 || arr[0]?.Name1 || "Unknown";
+    };
+
+    const getEUPrimaryName = (namesData) => {
+        const arr = safeParse(namesData);
+        const nameObj = arr[0] || {};
+        return [
+            nameObj.first_name,
+            nameObj.middle_name,
+            nameObj.last_name,
+            nameObj.whole_name
+        ].filter(Boolean).join(' ') || "Unknown";
+    };
+
+    const renderResultsSection = (title, items, renderItem) => {
+        if (!items || items.length === 0) return null;
+
+        const Icon = ICONS_MAP[title] || <SearchIcon />;
+
+        return (
+            <Accordion
+                key={title}
+                defaultExpanded
+                sx={{
+                    mb: 2,
+                    borderRadius: '8px !important',
+                    '&:before': { display: 'none' },
+                    border: '1px solid #e0e0e0',
+                    boxShadow: 'none'
+                }}
+            >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: alpha('#DAA520', 0.1), borderRadius: '8px 8px 0 0' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ color: '#DAA520', display: 'flex' }}>{Icon}</Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                            {title.replace(/_/g, ' ')}
+                        </Typography>
+                        <Chip label={items.length} size="small" color="warning" sx={{ ml: 1, height: 20 }} />
+                    </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 2, bgcolor: '#fafafa' }}>
+                    <Grid container spacing={2}>
+                        {items.map((item, index) => (
+                            <Grid item xs={12} sm={6} md={4} key={index}>
+                                <Card variant="outlined" sx={{ height: '100%', borderColor: '#e0e0e0', transition: 'all 0.2s', '&:hover': { borderColor: '#DAA520', boxShadow: 2 } }}>
+                                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                        {renderItem(item)}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        ))}
+                    </Grid>
+                </AccordionDetails>
+            </Accordion>
         );
-        setPepResults([]);
-        setSanctionsResults([]);
-      }
-    } catch (err) {
-      console.error("Error searching:", err);
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          "Error searching for name"
-      );
-      setPepResults([]);
-      setSanctionsResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [name]);
+    };
 
-  const handleSearch = (e) => {
-    if (e) e.preventDefault();
-    fetchSearchResults();
-  };
+    const totalResults = results ? Object.entries(results).reduce((acc, [k, v]) => acc + (Array.isArray(v) ? v.length : 0), 0) : 0;
+    const hasResults = totalResults > 0;
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") handleSearch(e);
-  };
-
-  const handleReset = () => {
-    setName("");
-    setError(null);
-    setPepResults([]);
-    setSanctionsResults([]);
-    setHasSearched(false);
-    setPepPage(0);
-    setSanctionsPage(0);
-  };
-
-  const handleHome = () => navigate("/");
-  const handleSnackbarClose = () =>
-    setSnackbar((s) => ({ ...s, open: false }));
-
-  const getStatusColor = (status) => {
-    if (!status) return "default";
-    switch (String(status).toLowerCase()) {
-      case "active":
-      case "match":
-      case "confirmed":
-        return "success";
-      case "pending":
-      case "review":
-        return "warning";
-      case "inactive":
-      case "cleared":
-      case "false positive":
-        return "error";
-      default:
-        return "default";
-    }
-  };
-
-  const paginatedPeps = pepResults.slice(
-    pepPage * pepRowsPerPage,
-    pepPage * pepRowsPerPage + pepRowsPerPage
-  );
-  const paginatedSanctions = sanctionsResults.slice(
-    sanctionsPage * sanctionsRowsPerPage,
-    sanctionsPage * sanctionsRowsPerPage + sanctionsRowsPerPage
-  );
-
-  const headerCell = {
-    fontWeight: "bold",
-    minWidth: 120,
-    whiteSpace: "nowrap",
-    bgcolor: "#fff8e1",
-  };
-
-  // =========================================================
-  // Sanction card renderer
-  // =========================================================
-  const renderSanctionCard = (s, index) => (
-    <Paper
-      key={s.id || `sanction-${index}`}
-      elevation={0}
-      sx={{
-        mb: 3,
-        borderRadius: 2,
-        border: "1px solid #e0e0e0",
-        overflow: "hidden",
-        borderLeft: "4px solid #DAA520",
-      }}
-    >
-      {/* Header bar — title */}
-      <Box
-        sx={{
-          px: 3,
-          py: 2,
-          bgcolor: "#fffdf5",
-          borderBottom: "1px dashed #e0e0e0",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-          <Typography
-            sx={{
-              fontSize: "0.75rem",
-              fontWeight: 800,
-              color: "#999",
-              letterSpacing: 0.5,
-              minWidth: 22,
-              pt: 0.4,
-            }}
-          >
-            {index + 1}.
-          </Typography>
-          <Typography
-            variant="h6"
-            fontWeight={900}
-            sx={{
-              textTransform: "uppercase",
-              color: "#111",
-              lineHeight: 1.3,
-              letterSpacing: 0.3,
-            }}
-          >
-            {s.name || "—"}
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Body */}
-      <Box sx={{ p: 3 }}>
-        {/* Aliases */}
-        {s.aliases && s.aliases.length > 0 && (
-          <>
-            <Typography
-              variant="overline"
-              sx={{
-                fontWeight: 800,
-                color: "#666",
-                letterSpacing: 1.5,
-                fontSize: "0.7rem",
-              }}
-            >
-              Aliases:
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 3, mb: 2 }}>
-              {s.aliases.map((a, i) => (
-                <li key={i}>
-                  <Typography variant="body2" sx={{ color: "#333", lineHeight: 1.6 }}>
-                    {a}
-                  </Typography>
-                </li>
-              ))}
-            </Box>
-          </>
-        )}
-
-        {/* Non-Latin Names */}
-        {s.nonLatinNames && s.nonLatinNames.length > 0 && (
-          <>
-            <Typography
-              variant="overline"
-              sx={{
-                fontWeight: 800,
-                color: "#666",
-                letterSpacing: 1.5,
-                fontSize: "0.7rem",
-              }}
-            >
-              Non-Latin Names:
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 3, mb: 2 }}>
-              {s.nonLatinNames.map((n, i) => (
-                <li key={i}>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "#333", lineHeight: 1.6, direction: "rtl", textAlign: "left" }}
-                  >
-                    {n}
-                  </Typography>
-                </li>
-              ))}
-            </Box>
-          </>
-        )}
-
-        {/* Addresses / Origin */}
-        {s.addresses && s.addresses.length > 0 && (
-          <>
-            <Typography
-              variant="overline"
-              sx={{
-                fontWeight: 800,
-                color: "#666",
-                letterSpacing: 1.5,
-                fontSize: "0.7rem",
-              }}
-            >
-              Address / Origin:
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 3, mb: 2 }}>
-              {s.addresses.map((addr, i) => (
-                <li key={i}>
-                  <Typography variant="body2" sx={{ color: "#333", lineHeight: 1.6 }}>
-                    {addr}
-                  </Typography>
-                </li>
-              ))}
-            </Box>
-          </>
-        )}
-
-        {/* Sanctions Imposed — highlighted strip */}
-        {s.sanctionsImposed && (
-          <Box
-            sx={{
-              mt: 2,
-              px: 2,
-              py: 1.5,
-              bgcolor: "#fff0f0",
-              borderLeft: "4px solid #e53935",
-              borderRadius: 1,
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 700, color: "#c62828" }}
-            >
-              Sanctions:{" "}
-              <Box component="span" sx={{ fontWeight: 500, color: "#333" }}>
-                {s.sanctionsImposed}
-              </Box>
-            </Typography>
-          </Box>
-        )}
-
-        {/* Meta row (regime, list type, dates) */}
-        <Box
-          sx={{
-            mt: 2.5,
-            pt: 2,
-            borderTop: "1px dashed #e0e0e0",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 1,
-          }}
-        >
-          {s.regime && (
-            <Chip size="small" label={`Regime: ${s.regime}`} variant="outlined" />
-          )}
-          {s.listType && (
-            <Chip size="small" label={`Type: ${s.listType}`} variant="outlined" />
-          )}
-          {s.listedDate && (
-            <Chip
-              size="small"
-              label={`Listed: ${safeFormatDate(s.listedDate)}`}
-              variant="outlined"
-            />
-          )}
-          <Chip size="small" label={`ID: ${s.id}`} variant="outlined" />
-        </Box>
-      </Box>
-    </Paper>
-  );
-
-  return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "#f5f5f5", py: isMobile ? 1 : 2 }}>
-      <Container
-        maxWidth={false}
-        sx={{
-          width: getContainerWidth(),
-          ml: getContainerMargin(),
-          mr: isMobile ? 0 : "12px",
-          px: { xs: 1, sm: 2, md: 0.5 },
-        }}
-      >
-        {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-            flexWrap: "wrap",
-            gap: 2,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <SearchIcon sx={{ fontSize: 32, color: "#DAA520" }} />
-            <Typography
-              variant={isMobile ? "h5" : "h4"}
-              fontWeight="bold"
-              color="#DAA520"
-            >
-              Name Search
-            </Typography>
-            <Badge
-              badgeContent={pepResults.length + sanctionsResults.length}
-              color="warning"
-              sx={{ ml: 1 }}
-            >
-              <Chip
-                icon={<SearchIcon />}
-                label="Matches"
-                color="warning"
-                size="small"
-                variant="outlined"
-              />
-            </Badge>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button
-              variant="outlined"
-              startIcon={<HomeIcon />}
-              onClick={handleHome}
-              sx={{
-                borderColor: "#DAA520",
-                color: "#DAA520",
-                "&:hover": {
-                  backgroundColor: "rgba(218, 165, 32, 0.1)",
-                  borderColor: "#b8860b",
-                },
-              }}
-            >
-              Home
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={fetchSearchResults}
-              disabled={loading || !name.trim()}
-              sx={{ borderColor: "#DAA520", color: "#DAA520" }}
-            >
-              Refresh
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Search Card */}
-        <Paper sx={{ mb: 3, borderRadius: 2, p: 2 }}>
-          <Grid container spacing={2} alignItems="flex-end">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Full Name"
-                placeholder="Enter full name to search..."
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setError(null);
-                }}
-                onKeyPress={handleKeyPress}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={6} md={3}>
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleSearch}
-                disabled={loading || !name.trim()}
+    return (
+        <Box sx={{ minHeight: "100vh", bgcolor: "#f5f5f5", py: isMobile ? 1 : 2 }}>
+            <Container
+                maxWidth={false}
                 sx={{
-                  bgcolor: "#DAA520",
-                  color: "#000",
-                  "&:hover": { bgcolor: "#b8860b" },
-                  "&:disabled": { bgcolor: "#ccc", color: "#666" },
+                    width: "100%",
+                    ml: 0,
+                    px: { xs: 1, sm: 2, md: 0.5 },
                 }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  "Search"
-                )}
-              </Button>
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={handleReset}
-                sx={{ borderColor: "#DAA520", color: "#DAA520" }}
-              >
-                Clear
-              </Button>
-            </Grid>
-          </Grid>
-
-          {error && (
-            <Alert
-              severity="error"
-              sx={{ mt: 2 }}
-              onClose={() => setError(null)}
             >
-              {error}
-            </Alert>
-          )}
-        </Paper>
-
-        {/* Loading */}
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-            <CircularProgress sx={{ color: "#DAA520" }} />
-          </Box>
-        ) : (
-          <>
-            {/* ========================================================= */}
-            {/* TABLE 1: International PEPs (unchanged)                    */}
-            {/* ========================================================= */}
-            <Paper sx={{ mb: 3, borderRadius: 2, overflow: "hidden" }}>
-              <Box
-                sx={{
-                  p: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  borderBottom: "1px solid #e0e0e0",
-                  bgcolor: "#fafafa",
-                }}
-              >
-                <PublicIcon sx={{ color: "#DAA520" }} />
-                <Typography variant="h6" fontWeight="bold">
-                  International PEPs
-                </Typography>
-                <Chip
-                  label={pepResults.length}
-                  size="small"
-                  color="warning"
-                  sx={{ ml: 1 }}
-                />
-              </Box>
-
-              {pepResults.length === 0 ? (
-                <Box sx={{ p: 6, textAlign: "center" }}>
-                  <PublicIcon sx={{ fontSize: 48, color: "#ccc", mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {hasSearched
-                      ? "No International PEP matches found"
-                      : "Search for a name to see International PEP results"}
-                  </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <SearchIcon sx={{ fontSize: 32, color: "#DAA520" }} />
+                    <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="#DAA520">
+                        Global Search
+                    </Typography>
                 </Box>
-              ) : (
-                <>
-                  <TableContainer
-                    sx={{
-                      maxHeight: 420,
-                      overflow: "auto",
-                      ...scrollbarStyles,
-                    }}
-                  >
-                    <Table stickyHeader size="medium">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={headerCell}>#</TableCell>
-                          <TableCell sx={headerCell}>Name</TableCell>
-                          <TableCell sx={headerCell}>Aliases</TableCell>
-                          <TableCell sx={headerCell}>Country</TableCell>
-                          {/* <TableCell sx={headerCell}>Date of Birth</TableCell> */}
-                          <TableCell sx={headerCell}>Source</TableCell>
-                          {/* <TableCell sx={headerCell}>Status</TableCell> */}
-                          {/* <TableCell sx={headerCell}>Match Date</TableCell> */}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {paginatedPeps.map((p, index) => {
-                          const actualIndex = pepPage * pepRowsPerPage + index;
-                          return (
-                            <TableRow
-                              key={p.id || `pep-${actualIndex}`}
-                              sx={{
-                                "&:hover": { bgcolor: "#fafafa" },
-                                "&:nth-of-type(odd)": { bgcolor: "#fafafa" },
-                              }}
+
+                <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fff', mb: 4 }}>
+                    <form onSubmit={handleSearch}>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                            <TextField
+                                fullWidth
+                                variant="outlined"
+                                placeholder="Search names across all 11 lists globally..."
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon color="action" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: query && (
+                                        <InputAdornment position="end">
+                                            <IconButton onClick={clearSearch} edge="end" size="small">
+                                                <ClearIcon />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                    sx: { bgcolor: '#fafafa' }
+                                }}
+                            />
+                            <Button
+                                type="submit"
+                                variant="contained"
+                                disabled={loading || !query.trim()}
+                                sx={{
+                                    height: 56,
+                                    px: 4,
+                                    bgcolor: '#DAA520',
+                                    color: '#000',
+                                    fontWeight: 'bold',
+                                    whiteSpace: 'nowrap',
+                                    '&:hover': { bgcolor: '#b8860b' }
+                                }}
                             >
-                              <TableCell>{actualIndex + 1}</TableCell>
-                              <TableCell sx={{ fontWeight: 600 }}>
-                                {p.name || "—"}
-                              </TableCell>
-                              <TableCell>
-                                {p.aliases && p.aliases.length
-                                  ? p.aliases.slice(0, 2).join(", ") +
-                                    (p.aliases.length > 2 ? "…" : "")
-                                  : "—"}
-                              </TableCell>
-                              <TableCell>{formatCountry(p.countries)}</TableCell>
-                              {/* <TableCell>{formatBirthDate(p.birthDate)}</TableCell> */}
-                              <TableCell>
-                                {p.sources && p.sources.length
-                                  ? p.sources.slice(0, 2).join(" • ")
-                                  : "—"}
-                              </TableCell>
-                              
-                              {/* <TableCell>{safeFormatDate(p.matchDate)}</TableCell> */}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                                {loading ? <CircularProgress size={24} color="inherit" /> : 'Search All'}
+                            </Button>
+                        </Box>
+                    </form>
+                </Paper>
 
-                  <TablePagination
-                    rowsPerPageOptions={[5, 10, 25, 50]}
-                    component="div"
-                    count={pepResults.length}
-                    rowsPerPage={pepRowsPerPage}
-                    page={pepPage}
-                    onPageChange={(e, newPage) => setPepPage(newPage)}
-                    onRowsPerPageChange={(e) => {
-                      setPepRowsPerPage(parseInt(e.target.value, 10));
-                      setPepPage(0);
-                    }}
-                    sx={{
-                      borderTop: "1px solid #e0e0e0",
-                      "& .MuiTablePagination-select": { color: "#DAA520" },
-                      "& .MuiTablePagination-actions .MuiIconButton-root": {
-                        color: "#DAA520",
-                        "&:hover": {
-                          backgroundColor: "rgba(218, 165, 32, 0.1)",
-                        },
-                      },
-                    }}
-                  />
-                </>
-              )}
-            </Paper>
+                {results && (
+                    <Box sx={{ mt: 4 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexDirection: 'row', flexWrap: 'wrap' }}>
+                            <Typography variant="h6" fontWeight="bold">
+                                Search Results
+                            </Typography>
+                            <Chip
+                                label={hasResults ? `Found ${totalResults} matches` : 'No matches found'}
+                                color={hasResults ? 'success' : 'default'}
+                                variant="outlined"
+                            />
+                        </Box>
 
-            {/* ========================================================= */}
-            {/* SECTION 2: UK-Sanctions-List — CARD GRID (like the pic)    */}
-            {/* ========================================================= */}
-            <Paper
-              sx={{
-                borderRadius: 2,
-                overflow: "hidden",
-                bgcolor: "#fafafa",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  borderBottom: "1px solid #e0e0e0",
-                  bgcolor: "#fafafa",
-                }}
-              >
-                <GavelIcon sx={{ color: "#DAA520" }} />
-                <Typography variant="h6" fontWeight="bold">
-                  UK Sanctions List
-                </Typography>
-                <Badge badgeContent={sanctionsResults.length} color="warning">
-                  <Chip
-                    label="Matches"
-                    size="small"
-                    color="warning"
-                    variant="outlined"
-                  />
-                </Badge>
-              </Box>
+                        {!hasResults ? (
+                            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary', bgcolor: '#fff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                                <SearchIcon sx={{ fontSize: 64, opacity: 0.3, mb: 2 }} />
+                                <Typography variant="h6">No records matched your search for "{query}".</Typography>
+                                <Typography variant="body2" sx={{ mt: 1 }}>Try adjusting your search terms or checking your spelling.</Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                {renderResultsSection("International_PEPs", results.International_PEPs, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="primary">{item.name || item.fullName}</Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>Aliases: {item.aliases || 'None'}</Typography>
+                                        <Typography variant="body2">Dataset: {item.dataset}</Typography>
+                                    </>
+                                ))}
 
-              {sanctionsResults.length === 0 ? (
-                <Box sx={{ p: 6, textAlign: "center", bgcolor: "#fff" }}>
-                  <GavelIcon sx={{ fontSize: 48, color: "#ccc", mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {hasSearched
-                      ? "No UK Sanctions matches found"
-                      : "Search for a name to see UK Sanctions results"}
-                  </Typography>
-                </Box>
-              ) : (
-                <>
-                  {/* Card grid */}
-                  <Box sx={{ p: { xs: 2, md: 3 } }}>
-                    {paginatedSanctions.map((s, index) => {
-                      const actualIndex =
-                        sanctionsPage * sanctionsRowsPerPage + index;
-                      return renderSanctionCard(s, actualIndex);
-                    })}
-                  </Box>
+                                {renderResultsSection("UK_Sanctions_List", results.UK_Sanctions_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="error">{getUKPrimaryName(item.names)}</Typography>
+                                        <Typography variant="body2">Regime: {item.regime}</Typography>
+                                        <Typography variant="body2">Group Type: {item.group_type}</Typography>
+                                    </>
+                                ))}
 
-                  {/* Pagination */}
-                  <TablePagination
-                    rowsPerPageOptions={[5, 10, 25, 50]}
-                    component="div"
-                    count={sanctionsResults.length}
-                    rowsPerPage={sanctionsRowsPerPage}
-                    page={sanctionsPage}
-                    onPageChange={(e, newPage) => setSanctionsPage(newPage)}
-                    onRowsPerPageChange={(e) => {
-                      setSanctionsRowsPerPage(parseInt(e.target.value, 10));
-                      setSanctionsPage(0);
-                    }}
-                    sx={{
-                      bgcolor: "#fff",
-                      borderTop: "1px solid #e0e0e0",
-                      "& .MuiTablePagination-select": { color: "#DAA520" },
-                      "& .MuiTablePagination-actions .MuiIconButton-root": {
-                        color: "#DAA520",
-                        "&:hover": {
-                          backgroundColor: "rgba(218, 165, 32, 0.1)",
-                        },
-                      },
-                    }}
-                  />
-                </>
-              )}
-            </Paper>
-          </>
-        )}
+                                {renderResultsSection("EU_Sanctions_List", results.EU_Sanctions_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="error">{item.whole_name || item.name || getEUPrimaryName(item.name_aliases)}</Typography>
+                                        <Typography variant="body2">Ref: {item.eu_reference_number}</Typography>
+                                        <Typography variant="body2">Designation: {item.remark || item.designation_details || 'N/A'}</Typography>
+                                    </>
+                                ))}
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        >
-          <Alert
-            onClose={handleSnackbarClose}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Container>
-    </Box>
-  );
+                                {renderResultsSection("OFAC_Sanctions_List", results.OFAC_Sanctions_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="error">{item.name || item.primary_name}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Type: {item.type || item.entity_type}</Typography>
+                                        <Typography variant="body2">OFAC ID: {item.ofac_id}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("UN_Sanctions_List", results.UN_Sanctions_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="info.main">
+                                            {[item.first_name, item.second_name, item.third_name].filter(Boolean).join(' ')}
+                                        </Typography>
+                                        <Typography variant="body2">Type: {item.list_type || item.un_list_type}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Ref: {item.reference_number || item.dataid}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("UN_Designated_List", results.UN_Designated_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="info.main">
+                                            {[item.first_name, item.second_name, item.third_name].filter(Boolean).join(' ')}
+                                        </Typography>
+                                        <Typography variant="body2">Type: {item.list_type || item.un_list_type}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Ref: {item.reference_number || item.dataid}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("Black_List", results.Black_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold">{item.name_of_suspected || item.name}</Typography>
+                                        <Typography variant="body2">Phone: {item.phone_no || 'N/A'}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Offence: {item.predicate_offence || 'N/A'}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("Deliquent_List", results.Deliquent_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="warning.main">{item.customer_name || item.name}</Typography>
+                                        <Typography variant="body2">TIN: {item.tin}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Ref: {item.reference_no}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("ETH_List", results.ETH_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold">{item.name}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("Local_PEPs", results.Local_PEPs, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="primary">
+                                            {item.nameeng || item.nameamh || 'Unknown'}
+                                        </Typography>
+                                        <Typography variant="body2">Position: {item.position || 'N/A'}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Assignment: {item.placeofassignment || 'N/A'}</Typography>
+                                    </>
+                                ))}
+
+                                {renderResultsSection("PEP_Adverser_List", results.PEP_Adverser_List, (item) => (
+                                    <>
+                                        <Typography variant="subtitle2" fontWeight="bold" color="error">{item.name}</Typography>
+                                        <Typography variant="body2">Details: {item.details || 'N/A'}</Typography>
+                                    </>
+                                ))}
+                            </Box>
+                        )}
+                    </Box>
+                )}
+
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={4000}
+                    onClose={handleSnackbarClose}
+                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                    <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
+            </Container>
+        </Box>
+    );
 };
 
 export default Search;

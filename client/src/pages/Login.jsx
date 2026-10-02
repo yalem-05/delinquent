@@ -1,5 +1,5 @@
 // pages/Landing.jsx
-import React, { useState, useCallback, useEffect, useContext } from "react";
+import React, { useState, useCallback, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { UserContext } from "../context/UserContext";
@@ -14,28 +14,21 @@ import {
   Typography,
   Fade,
   Modal,
-  Stack,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import LoginIcon from "@mui/icons-material/Login";
 import CloseIcon from "@mui/icons-material/Close";
 import PersonIcon from "@mui/icons-material/Person";
 import KeyIcon from "@mui/icons-material/Key";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import CircleIcon from "@mui/icons-material/Circle";
 import ShieldIcon from "@mui/icons-material/Shield";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 
 import { login } from "../api/authApi";
 
 const Landing = () => {
   const navigate = useNavigate();
   const { setUser } = useContext(UserContext);
-
-  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Login modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -44,56 +37,16 @@ const Landing = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const slides = [
-    {
-      img: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1920&q=80",
-      title: "DELINQUENT ACCOUNT SCREENING",
-      desc: "Instantly verify whether an individual appears on the bank's delinquent account list before approving any transaction.",
-    },
-    {
-      img: "https://images.unsplash.com/photo-1568234928966-359c35dd8327?w=1920&q=80",
-      title: "RISK & COMPLIANCE",
-      desc: "Enterprise-grade screening aligned with AML/CFT and internal risk policies for every customer interaction.",
-    },
-    {
-      img: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80",
-      title: "SANCTIONS & WATCHLISTS",
-      desc: "Cross-check applicants and counterparties against international sanctions and internal watchlists in real time.",
-    },
-    {
-      img: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1920&q=80",
-      title: "FRAUD PREVENTION",
-      desc: "Identify high-risk individuals flagged for fraud, default, or prior misconduct before funds are released.",
-    },
-    {
-      img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1920&q=80",
-      title: "AUDIT-READY RECORDS",
-      desc: "Every search is logged with user, timestamp, and reference for full regulatory traceability.",
-    },
-    {
-      img: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1920&q=80",
-      title: "SECURE & CONFIDENTIAL",
-      desc: "Role-based access ensures sensitive delinquency data is visible only to authorized personnel.",
-    },
-  ];
-
-  const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
-  }, [slides.length]);
-
-  const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  }, [slides.length]);
+  // Single fixed slide
+  const slide = {
+    img: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80",
+    title: "SANCTIONS & WATCHLISTS",
+    desc: "Cross-check applicants and counterparties against international sanctions and internal watchlists in real time.",
+  };
 
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
   }, []);
-
-  // Auto-advance slide every 6s
-  useEffect(() => {
-    const id = setInterval(nextSlide, 6000);
-    return () => clearInterval(id);
-  }, [nextSlide]);
 
   // ---------- Handlers ----------
   const handleSearchClick = () => {
@@ -179,22 +132,18 @@ const Landing = () => {
       }}
     >
       {/* ============================================== */}
-      {/* BACKGROUND SLIDES                              */}
+      {/* BACKGROUND IMAGE (single fixed slide)          */}
       {/* ============================================== */}
-      {slides.map((slide, index) => (
-        <Fade in={currentSlide === index} key={index} timeout={1000}>
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.75)), url(${slide.img})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              transition: "background-image 1s ease-in-out",
-            }}
-          />
-        </Fade>
-      ))}
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.75)), url(${slide.img})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
 
       {/* ============================================== */}
       {/* TOP-RIGHT BUTTONS: Search + Login              */}
@@ -350,7 +299,7 @@ const Landing = () => {
                 textShadow: "0 4px 24px rgba(0,0,0,0.6)",
               }}
             >
-              {slides[currentSlide].title}
+              {slide.title}
             </Typography>
 
             <Typography
@@ -365,74 +314,11 @@ const Landing = () => {
                 textShadow: "0 2px 12px rgba(0,0,0,0.5)",
               }}
             >
-              {slides[currentSlide].desc}
+              {slide.desc}
             </Typography>
-
-            {/* Dot indicators */}
-            <Stack
-              direction="row"
-              spacing={1.5}
-              justifyContent="center"
-              sx={{ mb: 5 }}
-            >
-              {slides.map((_, index) => (
-                <CircleIcon
-                  key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  sx={{
-                    fontSize: { xs: 8, md: 11 },
-                    cursor: "pointer",
-                    color:
-                      currentSlide === index
-                        ? "#DAA520"
-                        : "rgba(255,255,255,0.35)",
-                    transition: "0.3s",
-                    "&:hover": { color: "#DAA520" },
-                  }}
-                />
-              ))}
-            </Stack>
           </Box>
         </Fade>
       </Box>
-
-      {/* ============================================== */}
-      {/* SLIDER ARROWS                                  */}
-      {/* ============================================== */}
-      <IconButton
-        onClick={prevSlide}
-        sx={{
-          position: "absolute",
-          left: { xs: 8, md: 24 },
-          top: "50%",
-          transform: "translateY(-50%)",
-          color: "#fff",
-          bgcolor: "rgba(0,0,0,0.4)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(255,255,255,0.2)",
-          "&:hover": { bgcolor: "#DAA520", color: "#000" },
-          zIndex: 15,
-        }}
-      >
-        <ArrowBackIosNewIcon fontSize="small" />
-      </IconButton>
-      <IconButton
-        onClick={nextSlide}
-        sx={{
-          position: "absolute",
-          right: { xs: 8, md: 24 },
-          top: "50%",
-          transform: "translateY(-50%)",
-          color: "#fff",
-          bgcolor: "rgba(0,0,0,0.4)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(255,255,255,0.2)",
-          "&:hover": { bgcolor: "#DAA520", color: "#000" },
-          zIndex: 15,
-        }}
-      >
-        <ArrowForwardIosIcon fontSize="small" />
-      </IconButton>
 
       {/* ============================================== */}
       {/* BOTTOM FOOTER                                  */}
